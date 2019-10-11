@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 #include <stdlib.h>
 #include <stdio.h>
 #include "mymalloc.h"
@@ -5,10 +6,16 @@
 unsigned short secreteKey = 0x7000; // 111 0000 0000 0000
 unsigned short specialNum = 0xf000;
 unsigned short fff = 0xfff; // 1111 1111 1111
+=======
+#include "mymalloc.h"
+
+unsigned short secreteKey = 1792; // 111 0000 0000
+>>>>>>> 21a79decc1dfb8703ffa96da8902ae89aac9937f
 // create a variable availabelSize to keep track of how much memory we have left
 unsigned short avaiMemory = 4094;
 // create a variable to flag the first time mymalloc is called
 boolean isFirstCall = True;
+<<<<<<< HEAD
 
 void printBinary(metadata *m)
 {
@@ -28,10 +35,22 @@ unsigned short get_inUse(metadata *m)
 { // get the first bit of data - if in-use, 1st bit is 1, else 0
   return (m->data & (1<<15)) >> 15;
 };
+=======
+// start holds the address of the virtual memory block
+metadata *start;
+metadata *end;
+static char myblock[HEAPSIZE] = {0};
+
+unsigned short get_inUse(metadata *m)
+{ // get the first bit of data
+  return (m->data & (1 << 15)) >> 15;
+}
+>>>>>>> 21a79decc1dfb8703ffa96da8902ae89aac9937f
 
 void set_inUse(metadata *m, unsigned short val)
 { // set the first bit of data
   m->data = val == 0 ? m->data & ~(1 << 15) : m->data | (1 << 15);
+<<<<<<< HEAD
   //printf("Set inuse to %hu", val);
   if ( val == 1 ){
     printBinary(m);
@@ -76,10 +95,47 @@ boolean checkValidBlock(metadata *m, unsigned short size)
   short mSize = getSize(m);
   printf("inUse: %hu, size: %hu, input Size: %hu\n", inUse, mSize, size);
   if (inUse == 0 && mSize >= size)
+=======
+}
+
+boolean isAllocated(metadata *m)
+{
+  //check secrete Key, if it is 7, the address is allocated
+  return (m->data & secreteKey) == 7 ? True : False;
+}
+
+void setSecreteKey(metadata *m)
+{
+  m->data = m->data | secreteKey;
+}
+
+unsigned short getSize(metadata *m)
+{ //get the last 12 bits of data
+  return m->data & ~(0 << 11);
+}
+
+void setSize(metadata *m, unsigned short size)
+{
+  m->data = (m->data & (0 << 11)) | size;
+}
+
+void setup()
+{ // set the first metadata to not in-use, 4094 bytes
+  start = (metadata *)myblock;
+  end = start;
+  setSize(start, HEAPSIZE - sizeof(metadata));
+  setSecreteKey(start);
+}
+
+boolean checkValidBlock(metadata *address, unsigned short size)
+{
+  if (!get_inUse(address) && getSize(address) >= size)
+>>>>>>> 21a79decc1dfb8703ffa96da8902ae89aac9937f
   {
     return True;
   }
   return False;
+<<<<<<< HEAD
 };
 
 // void updateSmallest(metadata **smallest, metadata **ptr)
@@ -101,6 +157,23 @@ static metadata *tail = (metadata *)myblock;
 void *mymalloc(size_t inputSize, char *filename, int line)
 {
   unsigned short size = inputSize;
+=======
+}
+
+void updateSmallest(metadata *smallest, metadata *ptr)
+{
+  if (getSize(ptr) < getSize(smallest))
+  {
+    smallest = ptr;
+  }
+}
+/*
+*  MY MALLOC IMPLEMENTATION 
+*/
+
+void *mymalloc(size_t size, char *filename, int line)
+{
+>>>>>>> 21a79decc1dfb8703ffa96da8902ae89aac9937f
   if (size == 0)
     return NULL;
   if (avaiMemory < size)
@@ -110,11 +183,15 @@ void *mymalloc(size_t inputSize, char *filename, int line)
 
   if (isFirstCall)
   {
+<<<<<<< HEAD
     //setup;
     set_inUse(start, 0);
     setSecreteKey(start, secreteKey);
     setSize(start, HEAPSIZE - sizeof(metadata));
     printf("start Size: %hu\n", getSize(start));
+=======
+    setup();
+>>>>>>> 21a79decc1dfb8703ffa96da8902ae89aac9937f
     isFirstCall = False;
   }
 
@@ -127,6 +204,7 @@ void *mymalloc(size_t inputSize, char *filename, int line)
     if split the tail -> update tail
   */
   metadata *ptr = start;
+<<<<<<< HEAD
   metadata *smallest = NULL; 
   boolean foundBlock = False;
 
@@ -213,10 +291,59 @@ void *mymalloc(size_t inputSize, char *filename, int line)
            "At file: %s\tLine:%d\n",
            filename, line);
   }
+=======
+  metadata *smallest = NULL;
+  boolean foundBlock = False;
+
+  // find metadata that is not the tail
+  while (ptr != end)
+  {
+    if (foundBlock)
+    {
+      updateSmallest(smallest, ptr);
+      printf("update smallest");
+    }
+    foundBlock = checkValidBlock(ptr, size);
+    printf("inside loop\n");
+    ptr += getSize(ptr) + sizeof(ptr);
+  }
+
+  // check the tail
+  foundBlock = checkValidBlock(ptr, size);
+  if (foundBlock)
+    updateSmallest(smallest, ptr);
+  boolean isTail = smallest == end ? True : False;
+  if (foundBlock)
+  {
+    avaiMemory -= size;
+    result = smallest;
+    // split ?
+    if (getSize(result) > size + sizeof(result))
+    {
+      // update result metadata
+      // set up next metadata
+      metadata *nextMetadata = result + sizeof(result) + size;
+      if (isTail)
+      {
+        end = nextMetadata;
+      }
+    }
+  }
+
+  if (result == NULL)
+  {
+    printf("Error: malloc failed. Cannot find a sufficient space.\n"
+           "At file: %s\tLine:%d",
+           filename, line);
+    return NULL;
+  }
+
+>>>>>>> 21a79decc1dfb8703ffa96da8902ae89aac9937f
   return result;
 };
 
 /*
+<<<<<<< HEAD
 *  MY FREE IMPLEMENTATION
 */
 
@@ -228,3 +355,22 @@ Check list when myfree is called:
   - if no merge:
     - set in-use = 0, update new size
 */
+=======
+*  MY FREE IMPLEMENTATION 
+*/
+
+int main(int argc, char const *argv[])
+{
+
+  /* code */
+  struct meta
+  {
+    unsigned short a;
+  };
+
+  struct meta metadata;
+
+  printf("%lu\n", sizeof(metadata));
+  return 0;
+}
+>>>>>>> 21a79decc1dfb8703ffa96da8902ae89aac9937f
