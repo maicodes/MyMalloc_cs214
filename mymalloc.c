@@ -81,13 +81,6 @@ boolean checkValidBlock(metadata *address, unsigned short size)
     return False;
 };
 
-// void updateSmallest(metadata **smallest, metadata **ptr)
-// {
-//   if ( *smallest == NULL || getSize(*ptr) < getSize(*smallest)){
-//     printf("update smallest\n");
-//     *smallest = *ptr;
-//   }
-// };
 /*
 *  MY MALLOC IMPLEMENTATION
 */
