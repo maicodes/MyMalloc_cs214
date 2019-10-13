@@ -1,8 +1,5 @@
-<<<<<<< HEAD
 // your malloc headers and definitions
-=======
- // your malloc headers and definitions
->>>>>>> 21a79decc1dfb8703ffa96da8902ae89aac9937f
+
 #ifndef mymalloc_h_
 #define mymalloc_h_
 
@@ -23,22 +20,16 @@ typedef enum _bool
     True
 } boolean;
 
-<<<<<<< HEAD
 void printBinary(metadata *m);
 
-=======
->>>>>>> 21a79decc1dfb8703ffa96da8902ae89aac9937f
 void setup();
 
 unsigned short get_inUse(metadata *m);
 
 void set_inUse(metadata *m, unsigned short val);
 
-<<<<<<< HEAD
 void setSecreteKey(metadata *m, int val);
 
-=======
->>>>>>> 21a79decc1dfb8703ffa96da8902ae89aac9937f
 unsigned short getSize(metadata *m);
 
 void setSize(metadata *m, unsigned short size);
@@ -51,8 +42,4 @@ void *mymalloc(size_t size, char *filename, int line);
 
 void myfree(void *address, char *filename, int line);
 
-<<<<<<< HEAD
 #endif
-=======
-#endif
->>>>>>> 21a79decc1dfb8703ffa96da8902ae89aac9937f
