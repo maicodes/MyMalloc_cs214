@@ -24,8 +24,6 @@ typedef enum _bool
 
 void printBinary(metadata *m);
 
-void setup();
-
 unsigned short get_inUse(metadata *m);
 
 void set_inUse(metadata *m, unsigned short val);
