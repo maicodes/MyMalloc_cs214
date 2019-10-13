@@ -1,5 +1,4 @@
 // your malloc headers and definitions
-
 #ifndef mymalloc_h_
 #define mymalloc_h_
 
@@ -9,6 +8,9 @@
 #define malloc(x) mymalloc(x, __FILE__, __LINE__)
 #define free(x) myfree(x, __FILE__, __LINE__)
 #define HEAPSIZE 4096
+#define SECRETEKEY 0x7000
+#define SET_SIZE_NUM 0xf000
+#define GET_SIZE_NUM 0xfff
 typedef struct _metadata
 {
     unsigned short data;
@@ -34,9 +36,7 @@ unsigned short getSize(metadata *m);
 
 void setSize(metadata *m, unsigned short size);
 
-void *findEmptyBlock(void *address);
-
-void splitMemBlocks(void *address);
+boolean checkValidBlock(metadata *address, unsigned short size);
 
 void *mymalloc(size_t size, char *filename, int line);
 
