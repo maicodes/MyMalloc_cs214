@@ -18,9 +18,11 @@ void *mymalloc(size_t inputSize, char *filename, int line)
     if (size == 0)
         return NULL;
 
-    if (avaiMemory < size)
+    if (avaiMemory < size) {
         printf("Error: Not enough memory in heap.\n%hu bytes left in heap.\n",
                avaiMemory);
+        return NULL;
+    }
 
     if (isFirstCall)
     {
