@@ -1,8 +1,5 @@
 #include "mymalloc.h"
-//define secret key
-unsigned short secreteKey = 0x7000; // 111 0000 0000 0000
-unsigned short specialNum = 0xf000; // use to getSize()
-unsigned short fff = 0xfff;         // 1111 1111 1111
+
 // create a variable availabelSize to keep track of how much memory we have left
 unsigned short avaiMemory = 4094;
 // create a variable to flag the first time mymalloc is called
@@ -12,7 +9,6 @@ boolean isFirstCall = True;
 *  MY MALLOC IMPLEMENTATION
 */
 
-// 'start' holds the address of the virtual memory block
 static char myblock[HEAPSIZE];
 static metadata *start = (metadata *)myblock;
 static metadata *tail = (metadata *)myblock;
@@ -32,7 +28,7 @@ void *mymalloc(size_t inputSize, char *filename, int line)
     {
         //setup
         set_inUse(start, 0);
-        setSecreteKey(start, secreteKey);
+        setSecreteKey(start, SECRETEKEY);
         setSize(start, HEAPSIZE - sizeof(metadata));
         printf("start Size: %hu\n", getSize(start));
         isFirstCall = False;
@@ -113,7 +109,7 @@ void *mymalloc(size_t inputSize, char *filename, int line)
             metadata *nextMetadata = smallest + sizeof(metadata) + size;
             avaiMemory -= sizeof(metadata);
             set_inUse(nextMetadata, 0);
-            setSecreteKey(nextMetadata, secreteKey);
+            setSecreteKey(nextMetadata, SECRETEKEY);
             setSize(nextMetadata, getSize(smallest) - size - sizeof(metadata));
             printf("size of nextMetadata %hu\n", getSize(nextMetadata));
             setSize(smallest, size);
@@ -184,7 +180,7 @@ void set_inUse(metadata *m, unsigned short val)
 boolean isAllocated(metadata *m)
 {
     //check secrete Key, if it is 7, the address is allocated by mymalloc
-    return (m->data & secreteKey) == 7 ? True : False;
+    return (m->data & SECRETEKEY) == 7 ? True : False;
 };
 
 void setSecreteKey(metadata *m, int val) // val is either 0 or secreteKey
@@ -195,7 +191,7 @@ void setSecreteKey(metadata *m, int val) // val is either 0 or secreteKey
     }
     else
     {
-        m->data = m->data | secreteKey;
+        m->data = m->data | SECRETEKEY;
     }
     //printf("Set secrete key to %d", val);
     //printBinary(m);
@@ -203,12 +199,12 @@ void setSecreteKey(metadata *m, int val) // val is either 0 or secreteKey
 
 unsigned short getSize(metadata *m)
 { //get the last 12 bits of data
-    return m->data & fff;
+    return m->data & GET_SIZE_NUM;
 };
 
 void setSize(metadata *m, unsigned short size)
 {
-    m->data = (m->data & specialNum) | size;
+    m->data = (m->data & SET_SIZE_NUM) | size;
     //printf("Set size to %hu", size);
     //printBinary(m);
 };
