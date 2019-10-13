@@ -1,5 +1,3 @@
-#include <stdlib.h>
-#include <stdio.h>
 #include "mymalloc.h"
 //define secret key
 unsigned short secreteKey = 0x7000; // 111 0000 0000 0000
