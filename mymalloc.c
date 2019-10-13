@@ -1,9 +1,7 @@
 #include "mymalloc.h"
 
-// create a variable availabelSize to keep track of how much memory we have left
-unsigned short avaiMemory = 4094;
-// create a variable to flag the first time mymalloc is called
-boolean isFirstCall = True;
+unsigned short avaiMemory = 4094; // keep track of how much memory we have left
+boolean isFirstCall = True;       // flag the first time mymalloc is called
 
 /*
 *  MY MALLOC IMPLEMENTATION
@@ -16,13 +14,13 @@ static metadata *tail = (metadata *)myblock;
 void *mymalloc(size_t inputSize, char *filename, int line)
 {
     unsigned short size = inputSize;
+
     if (size == 0)
         return NULL;
+
     if (avaiMemory < size)
-    {
         printf("Error: Not enough memory in heap.\n%hu bytes left in heap.\n",
                avaiMemory);
-    }
 
     if (isFirstCall)
     {
@@ -82,55 +80,44 @@ void *mymalloc(size_t inputSize, char *filename, int line)
     else
         printf("smallest is not tail\n");
 
-    /*
-    Check list:
-    - set in-use to 1
-    - set new size
-    if there is a split:
-    - create another metadata
-    - set new size
-    - set secret Key
-    */
-
-    if (foundBlock)
-    {
-        // smallest is the current metadata we're at
-        // set inuse to 1
-        set_inUse(smallest, 1);
-        printf("smallest inuse: %hu\n", get_inUse(smallest));
-        // split ?
-        if (getSize(smallest) > size + sizeof(metadata))
-        {
-            /* because we split smallest into 2 smaller metadata, smallest will have
-            size = requested size, and the other metadata has the rest
-            */
-
-            // set up next metadata
-            metadata *nextMetadata = smallest + sizeof(metadata) + size;
-            avaiMemory -= sizeof(metadata);
-            set_inUse(nextMetadata, 0);
-            setSecreteKey(nextMetadata, SECRETEKEY);
-            setSize(nextMetadata, getSize(smallest) - size - sizeof(metadata));
-            printf("size of nextMetadata %hu\n", getSize(nextMetadata));
-            setSize(smallest, size);
-            printf("new size of smallest %hu\n", getSize(smallest));
-
-            if (isTail)
-            {
-                tail = nextMetadata;
-            }
-        }
-        // result is the first byte of the block of memory right after smallest
-        result = smallest + sizeof(metadata);
-        avaiMemory -= getSize(smallest);
-        printf("avai memory: %hu\n", avaiMemory);
-    }
-    else
+    if (!foundBlock)
     {
         printf("Error: malloc failed. Cannot find a sufficient space.\n"
                "At file: %s\tLine:%d\n",
                filename, line);
+        return result;
     }
+
+    /*
+    Check list:
+    - set smallest in-use to 1
+    if there is a split:
+    - create another metadata
+    - set smallest size and newMetadata size
+    - set secret Key
+    */
+
+    set_inUse(smallest, 1);
+    unsigned short smallestSize = getSize(smallest);
+
+    if (getSize(smallest) > size + sizeof(metadata))
+    {
+        metadata *nextMetadata = smallest + sizeof(metadata) + size;
+        avaiMemory -= sizeof(metadata);
+        set_inUse(nextMetadata, 0);
+        setSecreteKey(nextMetadata, SECRETEKEY);
+        setSize(nextMetadata, smallestSize - size - sizeof(metadata));
+        printf("size of nextMetadata %hu\n", getSize(nextMetadata));
+        setSize(smallest, size);
+        printf("new size of smallest %hu\n", getSize(smallest));
+
+        if (isTail)
+            tail = nextMetadata;
+    }
+
+    result = smallest + sizeof(metadata);
+    avaiMemory -= smallestSize;
+    printf("avai memory: %hu\n", avaiMemory);
 
     return result;
 };
@@ -172,9 +159,7 @@ void set_inUse(metadata *m, unsigned short val)
     m->data = val == 0 ? m->data & ~(1 << 15) : m->data | (1 << 15);
     //printf("Set inuse to %hu", val);
     if (val == 1)
-    {
         printBinary(m);
-    }
 };
 
 boolean isAllocated(metadata *m)
@@ -185,14 +170,7 @@ boolean isAllocated(metadata *m)
 
 void setSecreteKey(metadata *m, int val) // val is either 0 or secreteKey
 {
-    if (val == 0)
-    { // set the 9th, 10th, 11th bits to 0
-        m->data = m->data & ~(0x7 << 12);
-    }
-    else
-    {
-        m->data = m->data | SECRETEKEY;
-    }
+    m->data = val == 0 ? m->data & ~(0x7 << 12) : m->data | SECRETEKEY;
     //printf("Set secrete key to %d", val);
     //printBinary(m);
 };
@@ -211,9 +189,5 @@ void setSize(metadata *m, unsigned short size)
 
 boolean checkValidBlock(metadata *address, unsigned short size)
 {
-    if (!get_inUse(address) && getSize(address) >= size)
-    {
-        return True;
-    }
-    return False;
+    return (!get_inUse(address) && getSize(address) >= size) ? True : False;
 };
