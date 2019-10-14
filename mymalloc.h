@@ -1,4 +1,3 @@
-// your malloc headers and definitions
 #ifndef mymalloc_h_
 #define mymalloc_h_
 
@@ -36,8 +35,13 @@ void setSize(metadata *m, unsigned short size);
 
 boolean checkValidBlock(metadata *address, unsigned short size);
 
+boolean isAllocated(metadata *m);
+
+void availablefreenodes();
+
 void *mymalloc(size_t size, char *filename, int line);
 
-void myfree(void *address, char *filename, int line);
+void myfree(void *memory, char *filename, int line);
 
 #endif
+
