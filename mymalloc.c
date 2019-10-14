@@ -1,15 +1,22 @@
 #include "mymalloc.h"
 
 unsigned short avaiMemory = 4094; // keep track of how much memory we have left
-boolean isFirstCall = True;       // flag the first time mymalloc is called
-
-/*
-*  MY MALLOC IMPLEMENTATION
-*/
+boolean isFirstCall = True;       // signal the first time mymalloc is called
 
 static char myblock[HEAPSIZE];
 static metadata *start = (metadata *)myblock;
 static metadata *tail = (metadata *)myblock;
+static metadata *first_not_inuse = NULL;
+
+/*
+ *   mymalloc()
+ *   @params:
+ *       int inputSize: The amount of memory the user requested
+ *       const char* filename: Holds the filename name of the parent
+ *       int line: Holds the line number of the parent
+ *   @returns: void *storage
+ *   @comments: Returns a pointer to a user that contains an address to a block of memory in myblock[]
+ **/
 
 void *mymalloc(size_t inputSize, char *filename, int line)
 {
@@ -18,7 +25,8 @@ void *mymalloc(size_t inputSize, char *filename, int line)
     if (size == 0)
         return NULL;
 
-    if (avaiMemory < size) {
+    if (avaiMemory < size)
+    {
         printf("Error: Not enough memory in heap.\n%hu bytes left in heap.\n",
                avaiMemory);
         return NULL;
@@ -30,59 +38,34 @@ void *mymalloc(size_t inputSize, char *filename, int line)
         set_inUse(start, 0);
         setSecreteKey(start, SECRETEKEY);
         setSize(start, HEAPSIZE - sizeof(metadata));
-        printf("start Size: %hu\n", getSize(start));
         isFirstCall = False;
+        first_not_inuse = start;
     }
 
     void *result = NULL;
-    metadata *ptr = start;
-    metadata *smallest = NULL;
+    metadata *ptr = first_not_inuse;
     boolean foundBlock = False;
 
-    /*traverse through char array
-    check not in-use and sufficient size metadata
-    if not, keep traversing until meet the last metadata
-    if found, can update the address of smallest possible block?
-    if split the tail -> update tail
+    /*traverse through char array and
+    check for a valid block of memory
+    if we need to split the tail -> update tail
     */
 
-    while (ptr != tail)
+    while (ptr <= tail)
     {
-        printf("inside while loop\n");
-
-        if (foundBlock &&
-            (smallest == NULL ||
-             getSize(ptr) < getSize(smallest)))
+        foundBlock = checkValidBlock(ptr, size);
+        if (foundBlock)
         {
-            printf("here\n");
-            smallest = ptr;
+            result = ptr;
+            break;
         }
 
-        foundBlock = checkValidBlock(ptr, size);
-        ptr = (metadata *)(ptr + sizeof(metadata) + getSize(ptr));
-        printf("end 1 loop\n");
+        ptr = (metadata *)((void *)ptr + sizeof(metadata) + getSize(ptr));
     }
 
-    //check the tail
-    foundBlock = checkValidBlock(ptr, size);
-    boolean isTail = False;
+    boolean isTail = (result == tail) ? True : False;
 
-    if (foundBlock &&
-        (smallest == NULL ||
-         getSize(ptr) < getSize(smallest)))
-    {
-        smallest = ptr;
-        printf("smallest: %x\n", smallest);
-    }
-
-    isTail = smallest == tail ? True : False;
-
-    if (isTail)
-        printf("smallest is tail\n");
-    else
-        printf("smallest is not tail\n");
-
-    if (!foundBlock)
+    if (result == NULL || !foundBlock)
     {
         printf("Error: malloc failed. Cannot find a sufficient space.\n"
                "At file: %s\tLine:%d\n",
@@ -99,46 +82,183 @@ void *mymalloc(size_t inputSize, char *filename, int line)
     - set secret Key
     */
 
-    set_inUse(smallest, 1);
-    unsigned short smallestSize = getSize(smallest);
+    set_inUse(result, 1);
+    unsigned short resultSize = getSize(result);
+    metadata *nextMetadata = NULL;
 
-    if (getSize(smallest) > size + sizeof(metadata))
-    {
-        metadata *nextMetadata = smallest + sizeof(metadata) + size;
+    if (resultSize > size + sizeof(metadata))
+    { // split metadata
+        nextMetadata = (metadata *)((void *)result + sizeof(metadata) + size);
         avaiMemory -= sizeof(metadata);
         set_inUse(nextMetadata, 0);
         setSecreteKey(nextMetadata, SECRETEKEY);
-        setSize(nextMetadata, smallestSize - size - sizeof(metadata));
-        printf("size of nextMetadata %hu\n", getSize(nextMetadata));
-        setSize(smallest, size);
-        printf("new size of smallest %hu\n", getSize(smallest));
+        setSize(nextMetadata, resultSize - size - sizeof(metadata));
+        setSize(result, size);
 
         if (isTail)
             tail = nextMetadata;
     }
 
-    result = smallest + sizeof(metadata);
-    avaiMemory -= smallestSize;
-    printf("avai memory: %hu\n", avaiMemory);
+    if (first_not_inuse == result)
+    { //first_not_inuse is in-use
+        first_not_inuse = nextMetadata;
+    }
 
+    avaiMemory -= getSize(result);
+    result += sizeof(metadata);
     return result;
 };
 
 /*
-*  MY FREE IMPLEMENTATION
-*/
+ *   myfree()
+ *   @params:
+ *       void * memory: pointer which is requested to be deleted.
+ *       const char* filename: Holds the filename name of the parent
+ *       int line: Holds the line number of the parent
+ *   @returns: void
+ *   @comments: Changes metadata of node to allow overwritting, then defragments data array,
+ *   undefined behavior may occur on big endian machines.
+ **/
+
+void myfree(void *memory, char *filename, int line)
+{
+    boolean foundFlag = False; // Flag used in the testing of whether or not a match has been found between nodes and the pointer passed-in
+
+    if (memory == NULL)
+    {
+        fprintf(stderr, "\nERROR: Trying to free a NULL address.\n"
+                        "filename: %s\n"
+                        "Line: %d\n",
+                filename, line);
+        return;
+    }
+
+    if (memory < (void *)start || memory > (void *)start + HEAPSIZE - 1)
+    {
+        fprintf(stderr, "\nERROR: Address is out of heap bounds.\n"
+                        "filename: %s\n"
+                        "Line: %d\n",
+                filename, line);
+        return;
+    }
+
+    if (!isAllocated((metadata *)(memory - sizeof(metadata))))
+    { // address is not a metadata
+        fprintf(stderr, "\nERROR: Address is not dynamically alocated.\n"
+                        "filename: %s\n"
+                        "Line: %d\n",
+                filename, line);
+        return;
+    }
+
+    /*
+     *   Checks to see if pointer has memory address residing in the heap,
+     *   if it does, then one little endian machines it will not have been
+     *   malloced by mymalloc.
+     *
+     *   A: Free()ing addresses that are not pointers.
+     *   B: Free()ing pointers that were not allocated by malloc().
+     **/
+
+    metadata *node = start;
+    metadata *prev = node;
+    while (node <= tail)
+    {
+        if ((metadata *)(memory - sizeof(metadata)) == node)
+        {
+            foundFlag = True; // If the (address - metadata) matches the address of a node, then a match has been found
+            break;
+        }
+        prev = node;
+        node = (metadata *)((void *)node + sizeof(metadata) + getSize(node));
+    }
+
+    if (!foundFlag) //the address is not in our metadata list
+    {
+        fprintf(stderr, "\nERROR: Address is not dynamically alocated.\n"
+                        "filename: %s\n"
+                        "Line: %d\n",
+                filename, line);
+        return;
+    }
+
+    /* C: Redundant free()ing of the same pointer. */
+    if (get_inUse(node) == 0) // If memory address matches, but the node is not in use, then it is redundant free()ing
+    {
+        fprintf(stderr, "\nERROR: Redundant free()ing of the same pointer.\n"
+                        "filename: %s\n"
+                        "Line: %d\n",
+                filename, line);
+        return;
+    }
+
+    // no error occurs -> ready free node
+
+    if (first_not_inuse > node)
+        first_not_inuse = node;
+
+    set_inUse(node, 0);
+
+    if (node != start)
+        setSecreteKey(node, 0);
+
+    metadata *nextNode = (metadata *)((void *)node + sizeof(metadata) + getSize(node));
+    availablefreenodes(prev, node, nextNode);
+}
 
 /*
-Check list when myfree is called:
-  - if there is a merge :
-    - set size of the left metadata to new size; set size of the right metadata to 0
-    - zero out secrete key + in-use of the right metadata
-  - if no merge:
-    - set in-use = 0, update new size
-*/
+ *   availablefreenodes
+ *   @params:
+ *          metadata* prev: curr's previous node
+ *          metadata* curr: the current node to free
+ *          metadata* next: curr's next node
+ *   @returns: void
+ *   @comments: Combines consecutive free nodes
+ **/
+
+void availablefreenodes(metadata *prev, metadata *curr, metadata *next)
+{
+    unsigned short neededToFree = getSize(curr);
+    // If the present node and prev node are not in use
+    if ((prev != curr) && get_inUse(prev) == 0)
+    { // Coalesce left
+        setSize(prev, getSize(prev) + neededToFree + sizeof(metadata));
+        neededToFree += sizeof(metadata);
+        setSize(curr, 0);
+
+        if (curr == tail)
+        {
+            tail = prev;
+            setSecreteKey(tail, SECRETEKEY);
+            avaiMemory += neededToFree;
+            return;
+        }
+
+        curr = prev;
+    }
+
+    // If the present node and next node are not in use
+    if ((next <= tail) && get_inUse(next) == 0)
+    { // Coalesce right
+        setSize(curr, getSize(curr) + getSize(next) + sizeof(metadata));
+        setSize(next, 0);
+        neededToFree += sizeof(metadata);
+
+        if (next == tail)
+        {
+            tail = curr;
+            setSecreteKey(next, 0);
+            setSecreteKey(tail, SECRETEKEY);
+        }
+        else
+            neededToFree += getSize(next);
+    }
+
+    avaiMemory += neededToFree;
+}
 
 void printBinary(metadata *m)
-{
+{ // use this function to assure the bitwise functions work
     unsigned short n = m->data;
     while (n)
     {
@@ -157,24 +277,18 @@ unsigned short get_inUse(metadata *m)
 };
 
 void set_inUse(metadata *m, unsigned short val)
-{ // set the first bit of data
+{
     m->data = val == 0 ? m->data & ~(1 << 15) : m->data | (1 << 15);
-    //printf("Set inuse to %hu", val);
-    if (val == 1)
-        printBinary(m);
 };
 
 boolean isAllocated(metadata *m)
-{
-    //check secrete Key, if it is 7, the address is allocated by mymalloc
-    return (m->data & SECRETEKEY) == 7 ? True : False;
+{ //check secrete Key, if it is 7, the current address is a metadata
+    return (m->data & SECRETEKEY) == SECRETEKEY ? True : False;
 };
 
-void setSecreteKey(metadata *m, int val) // val is either 0 or secreteKey
-{
+void setSecreteKey(metadata *m, int val)
+{ //set to 0 or SECRETEKEY
     m->data = val == 0 ? m->data & ~(0x7 << 12) : m->data | SECRETEKEY;
-    //printf("Set secrete key to %d", val);
-    //printBinary(m);
 };
 
 unsigned short getSize(metadata *m)
@@ -185,8 +299,6 @@ unsigned short getSize(metadata *m)
 void setSize(metadata *m, unsigned short size)
 {
     m->data = (m->data & SET_SIZE_NUM) | size;
-    //printf("Set size to %hu", size);
-    //printBinary(m);
 };
 
 boolean checkValidBlock(metadata *address, unsigned short size)
